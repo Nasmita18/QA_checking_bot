@@ -20,7 +20,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final BotConfig config;
 
     private static final String HELP_TEXT = "Этот бот помогает проверить твои базовые знания тестировщика. \n\n" +
-            "Нажми на /question чтобы получить случайный вопрос по теории. \n\n" +
+            "Нажми на /question чтобы получить случайный вопрос по теории.\n\n" +
             "Нажми на /answer чтобы получить ответ на вопрос.";
     String answer = null;
 
