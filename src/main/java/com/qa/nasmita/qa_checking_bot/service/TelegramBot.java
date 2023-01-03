@@ -1,14 +1,18 @@
 package com.qa.nasmita.qa_checking_bot.service;
 
 import com.qa.nasmita.qa_checking_bot.config.BotConfig;
+import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.*;
@@ -73,31 +77,27 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/help":
                     sendMessage(chatId, HELP_TEXT);
                     break;
+                case "Получить вопрос":
                 case "/question":
                     randomQuestion(chatId);
                     break;
+                case "Получить ответ":
                 case "/answer":
                     answerToQuestion(chatId, answer);
                     break;
                 default:
-                    sendMessage(chatId, "Извини, эта команда не поддерживается.");
+                    String botAnswer = EmojiParser.parseToUnicode("Извини, эта команда не поддерживается " + ":crying_cat_face:");
+                    sendMessage(chatId, botAnswer);
             }
         }
-
-
     }
 
     private void startCommandReceived(long chatId, String name) {
-        String answer = "Привет, " + name + ", давай проверим твои знания! \n\nВведи /question, чтобы получить вопрос.";
-
-        sendMessage(chatId, answer);
+        String botAnswer = EmojiParser.parseToUnicode("Привет, " + name + ", давай проверим твои знания! \n\nВведи /question, чтобы получить вопрос " + ":blush:");
+        sendMessage(chatId, botAnswer);
     }
 
     private void randomQuestion(long chatId) {
-
-
-
-
         // Get a random entry from the HashMap.
         createQuestionMap(chatId);
 
@@ -117,7 +117,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         //заполняем вторую мапу вопросами, которые уже прозвучали
         moveQuestion(chatId);
 
-
         log.info("map {}", map.size());
 
         sendMessage(chatId, question);
@@ -126,7 +125,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     //метод вызывается, когда заканчиваются вопросы
     private void moveQuestion(long chatId) {
         if (map.isEmpty()) {
-            sendMessage(chatId, "Вопросы закончились. Начниаем заново :)");
+            String botAnswer = EmojiParser.parseToUnicode("Вопросы закончились. Начниаем заново " + ":blush:");
+            sendMessage(chatId, botAnswer);
             isCached = false;
         }
     }
@@ -147,7 +147,10 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
         if (checkQuestion) {
-            sendMessage(chatId, "Сначала получи вопрос :)");
+            //ответ бота со смайликом
+            String botAnswer = EmojiParser.parseToUnicode("Сначала получи вопрос " + ":blush:");
+
+            sendMessage(chatId, botAnswer);
         } else {
             log.info("Отправляем ответ");
             sendMessage(chatId, answer);
@@ -162,6 +165,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
+
+        createKeyboard(message);
 
         try {
             execute(message);
@@ -180,6 +185,28 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         questionMap.put(chatId, map);
         isCached = true;
+    }
+
+    private void createKeyboard(SendMessage message) {
+        //Добавляем клавиатуру
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        keyboardMarkup.setResizeKeyboard(true); //подгоняем размер
+
+        List<KeyboardRow> keyboardRows = new ArrayList<>();
+
+        KeyboardRow questionRow = new KeyboardRow();
+        questionRow.add("Получить вопрос");
+
+        keyboardRows.add(questionRow);
+
+        KeyboardRow answerRow = new KeyboardRow();
+        answerRow.add("Получить ответ");
+
+        keyboardRows.add(answerRow);
+
+        keyboardMarkup.setKeyboard(keyboardRows);
+
+        message.setReplyMarkup(keyboardMarkup);
     }
 
     //тут добавляем вопросы
