@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
@@ -15,7 +14,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
 
 @Slf4j
 @Service
@@ -187,18 +189,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         isCached = true;
     }
 
+    //Добавляем клавиатуру
     private void createKeyboard(SendMessage message) {
-        //Добавляем клавиатуру
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setResizeKeyboard(true); //подгоняем размер
 
         List<KeyboardRow> keyboardRows = new ArrayList<>();
 
+        //кнопка вопроса
         KeyboardRow questionRow = new KeyboardRow();
         questionRow.add("Получить вопрос");
 
         keyboardRows.add(questionRow);
 
+        //кнопка ответа
         KeyboardRow answerRow = new KeyboardRow();
         answerRow.add("Получить ответ");
 
