@@ -1,6 +1,7 @@
 package com.qa.nasmita.qa_checking_bot.service;
 
 import com.qa.nasmita.qa_checking_bot.config.BotConfig;
+import com.qa.nasmita.qa_checking_bot.dto.UserDto;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -29,15 +27,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             "Нажми на /question чтобы получить случайный вопрос по теории.\n\n" +
             "Нажми на /answer чтобы получить ответ на вопрос.";
 
-    String answer = null;
-
-    String question = null;
-
-    Boolean isCached = false;
-
-    HashMap<Long, HashMap<String, String>> questionMap = new HashMap<>();
-    //тут хранятся вопросы и ответы
-    HashMap<String, String> map = new HashMap<>();
+    //хранятся сессии пользователей
+    List<UserDto> users = new ArrayList<>();
 
     public TelegramBot(BotConfig config) {
         this.config = config;
@@ -85,12 +76,32 @@ public class TelegramBot extends TelegramLongPollingBot {
                     break;
                 case "Получить ответ":
                 case "/answer":
-                    answerToQuestion(chatId, answer);
+                    answerToQuestion(chatId);
                     break;
                 default:
-                    String botAnswer = EmojiParser.parseToUnicode("Извини, эта команда не поддерживается " + ":crying_cat_face:");
-                    sendMessage(chatId, botAnswer);
+                    if (messageText.toCharArray()[0] == '/') {
+                        String botAnswer = EmojiParser.parseToUnicode("Извини, эта команда не поддерживается " + ":crying_cat_face:");
+                        sendMessage(chatId, botAnswer);
+                        break;
+                    }
+                    String message = EmojiParser.parseToUnicode("К сожалению я не понимаю человеческую речь " + ":crying_cat_face:");
+                    sendMessage(chatId, message);
             }
+        }
+    }
+
+    private UserDto getUser(long chatId) {
+        if (users.stream().noneMatch(userDto -> userDto.getChatId() == chatId)) {
+            HashMap<String, String> questionAnswerMap = fillQuestionMap();
+            UserDto user = UserDto.builder()
+                    .chatId(chatId)
+                    .questAnswerMap(questionAnswerMap)
+                    .build();
+            users.add(user);
+            return user;
+        } else {
+            Optional<UserDto> userDtoOpt = users.stream().filter(userDto -> userDto.getChatId() == chatId).findFirst();
+            return userDtoOpt.get();
         }
     }
 
@@ -100,66 +111,64 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void randomQuestion(long chatId) {
-        // Get a random entry from the HashMap.
-        createQuestionMap(chatId);
+        UserDto user = getUser(chatId);
 
-        if (map.isEmpty()) {
-            sendMessage(chatId, "Вопросы закончились. Начинаем заново :)");
-            isCached = false;
+        if (user.getQuestAnswerMap().isEmpty()) {
+            String botAnswer = EmojiParser.parseToUnicode("Вопросы закончились. Начинаем заново " + ":nerd:");
+            sendMessage(chatId, botAnswer);
+            HashMap<String, String> questionAnswerMap = fillQuestionMap();
+            user.setQuestAnswerMap(questionAnswerMap);
+            user.setAnswerToSelectedQuestion(null);
+            user.setSelectedQuestion(null);
             return;
         }
 
         //рандомизируем вопросы
-        Object[] randomKey = map.keySet().toArray();
+        Object[] randomKey = user.getQuestAnswerMap().keySet().toArray();
         Object key = randomKey[new Random().nextInt(randomKey.length)];
 
-        question = key.toString(); //вытаскиваем вопрос
-        answer = map.get(key.toString()); //вытаскиваем ответ к вопросу
+        String question = key.toString(); //вытаскиваем вопрос
+        user.setSelectedQuestion(question);
+
+        String answer = user.getQuestAnswerMap().get(key.toString()); //вытаскиваем ответ к вопросу
+        user.setAnswerToSelectedQuestion(answer);
 
         //заполняем вторую мапу вопросами, которые уже прозвучали
-        moveQuestion(chatId);
+//        moveQuestion(chatId);
 
-        log.info("map {}", map.size());
+        log.info("map {}", user.getQuestAnswerMap().size());
 
         sendMessage(chatId, question);
     }
 
     //метод вызывается, когда заканчиваются вопросы
-    private void moveQuestion(long chatId) {
-        if (map.isEmpty()) {
-            String botAnswer = EmojiParser.parseToUnicode("Вопросы закончились. Начниаем заново " + ":blush:");
-            sendMessage(chatId, botAnswer);
-            isCached = false;
-        }
-    }
+//    private void moveQuestion(long chatId) {
+//        if (map.isEmpty()) {
+//            String botAnswer = EmojiParser.parseToUnicode("Вопросы закончились. Начниаем заново " + ":blush:");
+//            sendMessage(chatId, botAnswer);
+//            isCached = false;
+//        }
+//    }
 
     //получаем ответ на вопрос
-    private void answerToQuestion(long chatId, String answer) {
-        log.info("содержание map: {}", map.keySet());
-        log.info("вытаскиваем question: {}", map.keySet());
+    private void answerToQuestion(long chatId) {
+        UserDto user = getUser(chatId);
 
-
-        boolean checkQuestion = true;
-        for (String s : map.keySet()) {
-            if (s.equals(question)) {
-                checkQuestion = false;
-                break;
-            }
-        }
-
-
-        if (checkQuestion) {
+        if (user.getSelectedQuestion() == null ||
+                user.getQuestAnswerMap().get(user.getSelectedQuestion()) == null ||
+                user.getQuestAnswerMap().get(user.getSelectedQuestion()).isEmpty()) {
             //ответ бота со смайликом
             String botAnswer = EmojiParser.parseToUnicode("Сначала получи вопрос " + ":blush:");
 
             sendMessage(chatId, botAnswer);
-        } else {
-            log.info("Отправляем ответ");
-            sendMessage(chatId, answer);
-
-            //удаляем вопрос, после того, как получили на него ответ, чтобы не было повторений
-            map.remove(question);
+            return;
         }
+
+        log.info("Отправляем ответ");
+        sendMessage(chatId, user.getAnswerToSelectedQuestion());
+
+        //удаляем вопрос, после того, как получили на него ответ, чтобы не было повторений
+        user.getQuestAnswerMap().remove(user.getSelectedQuestion());
     }
 
     //отправляем сообщение
@@ -175,18 +184,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             log.error("Ошибка отправки сообщения: {}", e.getMessage());
         }
-    }
-
-    //создаем мапу с вопросами
-    private void createQuestionMap(Long chatId) {
-        if (isCached) {
-            return;
-        }
-
-        fillQuestionMap();
-
-        questionMap.put(chatId, map);
-        isCached = true;
     }
 
     //Добавляем клавиатуру
@@ -214,7 +211,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     //тут добавляем вопросы
-    private void fillQuestionMap() {
+    private HashMap<String, String> fillQuestionMap() {
+        HashMap<String, String> map = new HashMap<>();
         map.put("Что такое тестирование (ПО)?", "Поиск разницы между ожидаемым и фактическим поведением\n" + "Также это способ оценить качество ПО и снизить риски его отказа.");
         map.put("В чем цель тестирования и какая роль тестировщика на проекте?", "\n1. Проверка соответствия ПО заявленным требованиям 2. Обеспечение уверенности в качестве ПО 3. Поиск очевидных ошибок в ПО, которые должны быть выявлены до того, как их обнаружит пользователь. ");
         map.put("Какие основные этапы процесса тестирования?", "1. Планирование и анализ требований\n" + "2. Тестовое планирование\n" + "3. Разработка тест-кейсов\n" + "4. Подготовка тестовой среды\n" + "5. Выполнение тест-кейсов\n" + "6. Фиксация найденных дефектов\n" + "7. Анализ результатов тестирования\n" + "8. Отчетность");
@@ -342,5 +340,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         //вопросы по мобилке
         map.put("Что такое adb?", "Консольная клиент-серверная программа, выполняет роль универсального интерфейса для управления Android-устройствами (или их эмуляторами).\n" + "Через ADB программы на компьютере можно взаимодействовать с телефоном или планшетом, например для синхронизации контактов, бэкапов данных или удаленного доступа к устройству.");
         map.put("В чем разница между симулятором и эмулятором?", "Эмулятор — программа, которая аппаратно и программно имитирует работу реального мобильного устройства и настраивается в виртуальной среде.\n" + "    \n" + "Примеры эмуляторов для имитации Android-девайсов: Android Studio, Genymotion.\n" + "    \n" + "Эмуляторов iOS-устройств не бывает.\n" + "    \n" + "Симулятор — программа, созданная в виртуальной среде, которая также копирует конфигурацию и поведение реального целевого устройства.\n" + "    \n" + "Симуляторы не имитируют аппаратную часть устройств, поэтому работу железа протестировать не получится.");
+        return map;
     }
 }
