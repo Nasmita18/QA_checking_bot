@@ -84,7 +84,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         sendMessage(chatId, botAnswer);
                         break;
                     }
-                    String message = EmojiParser.parseToUnicode("К сожалению я не понимаю человеческую речь " + ":crying_cat_face:");
+                    String message = EmojiParser.parseToUnicode("К сожалению, я не понимаю человеческую речь " + ":crying_cat_face:");
                     sendMessage(chatId, message);
             }
         }
