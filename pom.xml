@@ -21,12 +21,12 @@
     </properties>
 
     <dependencies>
-<!--		Библиотека телеграм			-->
-		<dependency>
-			<groupId>org.telegram</groupId>
-			<artifactId>telegrambots</artifactId>
-			<version>${telegram.version}</version>
-		</dependency>
+        <!--		Библиотека телеграм			-->
+        <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots</artifactId>
+            <version>${telegram.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>
